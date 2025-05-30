@@ -1,31 +1,76 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>LiDAR Scan Areas</title>
   <meta charset="utf-8" />
+  <title>LiDAR Scan Areas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+  </style>
 </head>
 <body>
-  <div id="map" style="height: 100vh;"></div>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    const map = L.map('map').setView([0, 0], 2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    fetch('/api/scan-extents')
-      .then(res => res.json())
-      .then(data => {
-        L.geoJSON(data, {
-          style: {
-            color: 'orange',
-            weight: 2,
-            fillOpacity: 0.1
-          },
-          onEachFeature: function (feature, layer) {
-            layer.bindPopup("File: " + feature.properties.filename);
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  // Initialize map
+  const map = L.map('map').setView([0, 0], 2);
+
+  // Add OpenStreetMap tiles
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  // Fetch GeoJSON features from backend
+  fetch('/api/scan-extents')
+    .then(res => res.json())
+    .then(data => {
+      const geoLayer = L.geoJSON(data, {
+        // Render centroids
+        pointToLayer: function (feature, latlng) {
+          if (feature.properties.type === "centroid") {
+            return L.circleMarker(latlng, {
+              radius: 5,
+              color: 'blue',
+              fillColor: 'blue',
+              fillOpacity: 0.8
+            });
           }
-        }).addTo(map);
-      });
-  </script>
+        },
+        // Style extents
+        style: function (feature) {
+          if (feature.properties.type === "extent") {
+            return {
+              color: 'orange',
+              weight: 2,
+              fillOpacity: 0.1
+            };
+          }
+        },
+        // Add popups
+        onEachFeature: function (feature, layer) {
+          const props = feature.properties;
+          layer.bindPopup(
+            `File: ${props.filename}<br>Type: ${props.type}`
+          );
+        }
+      }).addTo(map);
+
+      // Zoom to fit all features
+      if (geoLayer.getBounds().isValid()) {
+        map.fitBounds(geoLayer.getBounds());
+      }
+    });
+</script>
+
 </body>
 </html>
